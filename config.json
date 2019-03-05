@@ -1,0 +1,19 @@
+{
+  "interval": 2000,
+  "credentialPath": "~/.iot-hub",
+  "reportInputsToDeviceTwin" : false,
+  "infoConfigurationSync" : false,
+  "debugConfigurationSync" : false,
+  "infoMethods" : true,
+  "debugMethods" : false,
+  "infoOutboundMessages" : false,
+  "debugOutboundMessages" : false,
+  "infoInboundMessages" : false,
+  "debugInboundMessages" : false,
+  "baseRotationConfig" : [3,148,611,180],
+  "upperArmExtensionConfig" : [5,230,560,100],
+  "lowerArmExtensionConfig" : [4,166,254,100],
+  "wristRollConfig" : [2,166,606,180],
+  "wristTiltConfig" : [0,250,431,90],
+  "handRotationConfig" : [1,149,558,180]
+}

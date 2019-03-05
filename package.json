@@ -1,0 +1,16 @@
+{
+  "name": "iot-hub-node-sainsmart-robot-client-app",
+  "version": "1.0.0",
+  "description": "Client application for Raspberry Pi with a SainSmart 6 Axis robot, integrated with Azure IoT hub",
+  "main": "index.js",
+  "dependencies": {
+    "azure-iot-device": "^1.9.3",
+    "azure-iot-device-mqtt": "^1.9.3",
+    "keypress": "^0.2.0",
+    "pca9685": "^4.0.3"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^3.17.1"
+  }
+}
