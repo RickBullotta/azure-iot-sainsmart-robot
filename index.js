@@ -18,14 +18,21 @@ var wristTiltConfig = [0,160,500,180];
 var handRotationConfig = [0,160,500,180];
 
 const Client = require('azure-iot-device').Client;
-const ConnectionString = require('azure-iot-device').ConnectionString;
 const Message = require('azure-iot-device').Message;
-const Protocol = require('azure-iot-device-mqtt').Mqtt;
 
-var messageId = 0;
-var deviceId;
+// DPS and connection stuff
+
+const iotHubTransport = require('azure-iot-device-mqtt').Mqtt;
+
+var ProvisioningTransport = require('azure-iot-provisioning-device-mqtt').Mqtt;
+var SymmetricKeySecurityClient = require('azure-iot-security-symmetric-key').SymmetricKeySecurityClient;
+var ProvisioningDeviceClient = require('azure-iot-provisioning-device').ProvisioningDeviceClient;
+
+var provisioningHost = 'global.azure-devices-provisioning.net';
+
 var client
 var config;
+var connect;
 
 var sendingMessage = true;
 
@@ -42,11 +49,6 @@ function convertPayload(request) {
 
 function sendUpdatedTelemetry(name,value) {
   if (!sendingMessage) { return; }
-
-  var content = {
-    messageId: ++messageId,
-    deviceId: deviceId
-  };
 
   var telemetry = {};
   telemetry[name] = value;
@@ -353,88 +355,7 @@ function onReceiveMessage(msg) {
   });
 }
 
-function initClient(connectionStringParam, credentialPath) {
-  var connectionString = ConnectionString.parse(connectionStringParam);
-  deviceId = connectionString.DeviceId;
-
-  // fromConnectionString must specify a transport constructor, coming from any transport package.
-  client = Client.fromConnectionString(connectionStringParam, Protocol);
-
-  // Configure the client to use X509 authentication if required by the connection string.
-  if (connectionString.x509) {
-    // Read X.509 certificate and private key.
-    // These files should be in the current folder and use the following naming convention:
-    // [device name]-cert.pem and [device name]-key.pem, example: myraspberrypi-cert.pem
-    var connectionOptions = {
-      cert: fs.readFileSync(path.join(credentialPath, deviceId + '-cert.pem')).toString(),
-      key: fs.readFileSync(path.join(credentialPath, deviceId + '-key.pem')).toString()
-    };
-
-    client.setOptions(connectionOptions);
-
-    console.log('[Device] Using X.509 client certificate authentication');
-  }
-  return client;
-}
-
-(function (connectionString) {
-  // read in configuration in config.json
-  try {
-    config = require('./config.json');
-  } catch (err) {
-    console.error('Failed to load config.json: ' + err.message);
-    return;
-  }
-
-  // Assign axes parameters
-
-  baseRotationConfig = config.baseRotationConfig;
-  upperArmExtensionConfig = config.upperArmExtensionConfig;
-  lowerArmExtensionConfig = config.lowerArmExtensionConfig;
-  wristRollConfig = config.wristRollConfig;
-  wristTiltConfig = config.wristTiltConfig;
-  handRotationConfig = config.handRotationConfig;
-
-  // Set up servo controller
-
-  try {
-    i2cBus = require("i2c-bus");
-    Pca9685Driver = require("pca9685").Pca9685Driver;
-    
-    var options = {
-      i2c: i2cBus.openSync(1),
-      address: 0x40,
-      frequency: 50,
-      debug: false
-    };
-
-    pwm = new Pca9685Driver(options, function(err) {
-      if (err) {
-          console.error("Error initializing PCA9685");
-          process.exit(-1);
-      }
-
-      console.log("Servo initialization done");
-    });
-  }
-  catch(e) {
-    console.log("Unable to configure servo controller : " + e);
-  }
-
-  // create a client
-  // read out the connectionString from process environment
-  connectionString = connectionString || process.env['AzureIoTHubDeviceConnectionString'];
-  client = initClient(connectionString, config);
-
-  client.open((err) => {
-    if (err) {
-      console.error('[IoT hub Client] Connect error: ' + err.message);
-      return;
-    }
-    else {
-      console.log('[IoT hub Client] Connected Successfully');
-    }
-
+function initBindings() {
     // set C2D and device method callback
     client.onDeviceMethod('start', onStart);
     client.onDeviceMethod('stop', onStop);
@@ -448,7 +369,46 @@ function initClient(connectionStringParam, credentialPath) {
     client.onDeviceMethod('SetHandRotation', onSetHandRotation);
 
     client.on('message', onReceiveMessage);
+}
 
+function initDevice() {
+    // Assign axes parameters
+
+    baseRotationConfig = config.baseRotationConfig;
+    upperArmExtensionConfig = config.upperArmExtensionConfig;
+    lowerArmExtensionConfig = config.lowerArmExtensionConfig;
+    wristRollConfig = config.wristRollConfig;
+    wristTiltConfig = config.wristTiltConfig;
+    handRotationConfig = config.handRotationConfig;
+
+    // Set up servo controller
+
+    try {
+      i2cBus = require("i2c-bus");
+      Pca9685Driver = require("pca9685").Pca9685Driver;
+      
+      var options = {
+        i2c: i2cBus.openSync(1),
+        address: 0x40,
+        frequency: 50,
+        debug: false
+      };
+
+      pwm = new Pca9685Driver(options, function(err) {
+        if (err) {
+            console.error("Error initializing PCA9685");
+            process.exit(-1);
+        }
+
+        console.log("Servo initialization done");
+      });
+    }
+    catch(e) {
+      console.log("Unable to configure servo controller : " + e);
+    }
+}
+
+function initLogic() {
     setInterval(() => {
       if (config.infoConfigurationSync)
         console.info("Syncing Device Twin...");
@@ -469,6 +429,71 @@ function initClient(connectionStringParam, credentialPath) {
 
       });
     }, config.interval);
+}
 
-  });
-})(process.argv[2]);
+function initClient() {
+
+	// Start the device (connect it to Azure IoT Central).
+	try {
+		var provisioningSecurityClient = new SymmetricKeySecurityClient(connect.deviceId, connect.symmetricKey);
+		var provisioningClient = ProvisioningDeviceClient.create(provisioningHost, connect.idScope, new ProvisioningTransport(), provisioningSecurityClient);
+
+		provisioningClient.register((err, result) => {
+			if (err) {
+				console.log('error registering device: ' + err);
+			} else {
+				console.log('registration succeeded');
+				console.log('assigned hub=' + result.assignedHub);
+				console.log('deviceId=' + result.deviceId);
+
+				var connectionString = 'HostName=' + result.assignedHub + ';DeviceId=' + result.deviceId + ';SharedAccessKey=' + connect.symmetricKey;
+				client = Client.fromConnectionString(connectionString, iotHubTransport);
+			
+				client.open((err) => {
+					if (err) {
+						console.error('[IoT hub Client] Connect error: ' + err.message);
+						return;
+					}
+					else {
+						console.log('[IoT hub Client] Connected Successfully');
+					}
+			
+					initBindings();
+
+					initLogic();
+				});
+			}
+		});
+	}
+	catch(err) {
+		console.log(err);
+	}
+}
+
+// Read in configuration from config.json
+
+try {
+	config = require('./config.json');
+} catch (err) {
+	config = {};
+	console.error('Failed to load config.json: ' + err.message);
+	return;
+}
+
+// Read in connection details from connect.json
+
+try {
+	connect = require('./connect.json');
+} catch (err) {
+	connect = {};
+	console.error('Failed to load connect.json: ' + err.message);
+	return;
+}
+
+// Perform any device initialization
+
+initDevice();
+
+// Initialize Azure IoT Client
+
+initClient();
