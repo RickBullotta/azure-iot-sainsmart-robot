@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+.slidecontainer {
+  width: 100%;
+}
+
+.slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 25px;
+  background: #d3d3d3;
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.slider:hover {
+  opacity: 1;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 25px;
+  height: 25px;
+  background: #4CAF50;
+  cursor: pointer;
+}
+
+.slider::-moz-range-thumb {
+  width: 25px;
+  height: 25px;
+  background: #4CAF50;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+
+<h1>Robot Control</h1>
+<p>Drag the sliders to control the robot.</p>
+
+<div class="appKeyContainer">
+<div>Enter Application Key:</div><INPUT type="password" id="appKey" />
+</div>
+
+<div class="slidecontainer">
+  Wrist Roll:<input type="range" min="0" max="180" value="90" class="slider" id="WristRoll">
+  <span id="WristRollValue"></span>
+  <br/>
+  Wrist Tilt:<input type="range" min="0" max="90" value="45" class="slider" id="WristTilt">
+  <span id="WristTiltValue"></span>
+  <br/>
+  Hand Rotation:<input type="range" min="0" max="180" value="90" class="slider" id="HandRotation">
+  <span id="HandRotationValue"></span>
+  <br/>
+  Base Rotation:<input type="range" min="0" max="180" value="90" class="slider" id="BaseRotation">
+  <span id="BaseRotationValue"></span>
+  <br/>
+  Lower Arm Extension:<input type="range" min="0" max="180" value="90" class="slider" id="LowerArmExtension">
+  <span id="LowerArmExtensionValue"></span>
+  <br/>
+  Upper Arm Extension:<input type="range" min="0" max="180" value="90" class="slider" id="UpperArmExtension">
+  <span id="UpperArmExtensionValue"></span>
+</div>
+
+<script>
+
+var wristRollSlider = document.getElementById("WristRoll");
+var wristRollValue = document.getElementById("WristRollValue");
+wristRollValue.innerHTML = wristRollSlider.value;
+
+wristRollSlider.onchange = function() {
+  wristRollValue.innerHTML = this.value;
+  doRequest("SetWristRoll","rotation",this.value);
+}
+
+var wristTiltSlider = document.getElementById("WristTilt");
+var wristTiltValue = document.getElementById("WristTiltValue");
+wristTiltValue.innerHTML = wristTiltSlider.value;
+
+wristTiltSlider.onchange = function() {
+  wristTiltValue.innerHTML = this.value;
+  doRequest("SetWristTilt","rotation",this.value);
+}
+
+var handRotationSlider = document.getElementById("HandRotation");
+var handRotationValue = document.getElementById("HandRotationValue");
+handRotationValue.innerHTML = handRotationSlider.value;
+
+handRotationSlider.onchange = function() {
+  handRotationValue.innerHTML = this.value;
+  doRequest("SetHandRotation","rotation",this.value);
+}
+
+var baseRotationSlider = document.getElementById("BaseRotation");
+var baseRotationValue = document.getElementById("BaseRotationValue");
+baseRotationValue.innerHTML = baseRotationSlider.value;
+
+baseRotationSlider.onchange = function() {
+  baseRotationValue.innerHTML = this.value;
+  doRequest("SetBaseRotation","rotation",this.value);
+}
+
+var lowerArmExtensionSlider = document.getElementById("LowerArmExtension");
+var lowerArmExtensionValue = document.getElementById("LowerArmExtensionValue");
+lowerArmExtensionValue.innerHTML = lowerArmExtensionSlider.value;
+
+lowerArmExtensionSlider.onchange = function() {
+  lowerArmExtensionValue.innerHTML = this.value;
+  doRequest("SetLowerArmExtension","extension",this.value);
+}
+
+var upperArmExtensionSlider = document.getElementById("UpperArmExtension");
+var upperArmExtensionValue = document.getElementById("UpperArmExtensionValue");
+upperArmExtensionValue.innerHTML = upperArmExtensionSlider.value;
+
+upperArmExtensionSlider.onchange = function() {
+  upperArmExtensionValue.innerHTML = this.value;
+  doRequest("SetUpperArmExtension","extension",this.value);
+}
+
+function doRequest(serviceName,parameterName,value) {
+    var request = new XMLHttpRequest()
+
+    // Open a new connection, using the GET request on the URL endpoint
+    request.open('GET', '/commands/' + serviceName + '?' + parameterName + '=' +value, true)
+
+    request.setRequestHeader("appKey",document.getElementById("appKey").value);
+    
+    request.onload = function() {
+    // Begin accessing JSON data here
+    }
+
+    // Send request
+    request.send()
+}
+
+</script>
+
+</body>
+</html>

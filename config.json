@@ -8,10 +8,10 @@
   "debugOutboundMessages" : false,
   "infoInboundMessages" : false,
   "debugInboundMessages" : false,
-  "baseRotationConfig" : [3,148,611,180],
+  "baseRotationConfig" : [3,120,500,180],
   "upperArmExtensionConfig" : [5,230,560,100],
   "lowerArmExtensionConfig" : [4,166,254,100],
-  "wristRollConfig" : [2,166,606,180],
-  "wristTiltConfig" : [0,250,431,90],
-  "handRotationConfig" : [1,149,558,180]
+  "wristRollConfig" : [2,122,466,180],
+  "wristTiltConfig" : [1,354,568,90],
+  "handRotationConfig" : [0,121,458,180]
 }

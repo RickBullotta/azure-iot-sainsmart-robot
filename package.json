@@ -4,13 +4,14 @@
   "description": "Client application for Raspberry Pi with a SainSmart 6 Axis robot, integrated with Azure IoT hub",
   "main": "index.js",
   "dependencies": {
-    "i2c-bus" : "^5.1.0",
-    "azure-iot-device": "^1.12.0",
-    "azure-iot-device-mqtt": "^1.11.0",
-    "azure-iot-provisioning-device-mqtt": "^1.6.0",
-    "azure-iot-security-symmetric-key": "^1.6.0",
+    "azure-iot-device": "^1.12.1",
+    "azure-iot-device-mqtt": "^1.11.1",
+    "azure-iot-provisioning-device-mqtt": "^1.6.1",
+    "azure-iot-security-symmetric-key": "^1.6.1",
+    "i2c-bus": "^5.1.0",
     "keypress": "^0.2.0",
-    "pca9685": "^4.0.3"
+    "pca9685": "^4.0.3",
+    "express": "^4.17.1"
   },
   "license": "MIT",
   "devDependencies": {}

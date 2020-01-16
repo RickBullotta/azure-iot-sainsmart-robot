@@ -5,6 +5,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const express = require("express");
 
 var i2cBus = {};
 var Pca9685Driver = {};
@@ -16,6 +17,14 @@ var lowerArmExtensionConfig = [0,160,500,180];
 var wristRollConfig = [0,160,500,180];
 var wristTiltConfig = [0,160,500,180];
 var handRotationConfig = [0,160,500,180];
+
+// Express app instance
+
+var app = express();
+
+var serviceRouter = {};
+
+// Azure IoT Client stuff
 
 const Client = require('azure-iot-device').Client;
 const Message = require('azure-iot-device').Message;
@@ -30,9 +39,13 @@ var ProvisioningDeviceClient = require('azure-iot-provisioning-device').Provisio
 
 var provisioningHost = 'global.azure-devices-provisioning.net';
 
-var client
+var client;
+
+// Configuration files
+
 var config;
 var connect;
+var server;
 
 var sendingMessage = true;
 
@@ -54,9 +67,6 @@ function sendUpdatedTelemetry(name,value) {
   telemetry[name] = value;
 
   var rawMessage = JSON.stringify(telemetry);
-
-  console.log("Sending:");
-  console.log(rawMessage);
 
   var message = new Message(rawMessage);
 
@@ -124,6 +134,76 @@ function setServoPositionScaled(servoConfig,position) {
 
   pwm.setPulseRange(servoConfig[0],0,scaledValue);
 }
+
+function allOff(params) {
+  if (config.infoMethods)
+    console.info("SetAllOff");
+
+  pwm.channelOff(baseRotationConfig[0]);
+  pwm.channelOff(upperArmExtensionConfig[0]);
+  pwm.channelOff(lowerArmExtensionConfig[0]);
+  pwm.channelOff(wristRollConfig[0]);
+  pwm.channelOff(wristTiltConfig[0]);
+  pwm.channelOff(handRotationConfig[0]);
+}
+
+function setWristRoll(params) {
+	var rotation = params.rotation;
+
+  console.log('rotation = ' + rotation);
+
+  if (config.infoMethods)
+    console.info("SetWristRoll");
+
+  setServoPositionScaled(wristRollConfig,rotation);
+}
+
+function setWristTilt(params) {
+	var rotation = params.rotation;
+
+  if (config.infoMethods)
+    console.info("SetWristTilt");
+
+  setServoPositionScaled(wristTiltConfig,rotation);
+}
+
+function setHandRotation(params) {
+	var rotation = params.rotation;
+
+  if (config.infoMethods)
+    console.info("SetHandRotation");
+
+  setServoPositionScaled(handRotationConfig,rotation);
+}
+
+function setBaseRotation(params) {
+	var rotation = params.rotation;
+
+  if (config.infoMethods)
+    console.info("SetBaseRotation");
+
+  setServoPositionScaled(baseRotationConfig,rotation);
+}
+
+function setLowerArmExtension(params) {
+	var rotation = params.extension;
+
+  if (config.infoMethods)
+    console.info("SetLowerArmExtension");
+
+  setServoPositionScaled(lowerArmExtensionConfig,rotation);
+}
+
+function setUpperArmExtension(params) {
+	var rotation = params.extension;
+
+  if (config.infoMethods)
+    console.info("SetUpperArmExtension");
+
+  setServoPositionScaled(upperArmExtensionConfig,rotation);
+}
+
+
 
 function onSetHandRotation(request, response) {
   sendingMessage = true;
@@ -490,6 +570,19 @@ try {
 	return;
 }
 
+// Read in connection details from connect.json
+
+try {
+	server = require('./server.json');
+} catch (err) {
+	server = { 
+              "port" : 3000,
+              "appKey" : ""
+           };
+	console.error('Failed to load server.json: ' + err.message);
+	return;
+}
+
 // Perform any device initialization
 
 initDevice();
@@ -497,3 +590,93 @@ initDevice();
 // Initialize Azure IoT Client
 
 initClient();
+
+app.listen(server.port, () => {
+ console.log("Server running on port 3000");
+});
+
+serviceRouter['SetAllOff'] = allOff;
+serviceRouter['SetBaseRotation'] = setBaseRotation;
+serviceRouter['SetLowerArmExtension'] = setLowerArmExtension;
+serviceRouter['SetUpperArmExtension'] = setUpperArmExtension;
+serviceRouter['SetWristRoll'] = setWristRoll;
+serviceRouter['SetWristTilt'] = setWristTilt;
+serviceRouter['SetHandRotation'] = setHandRotation;
+
+app.get("/commands/:service", (req, res, next) => {
+    var serviceHandler = serviceRouter[req.params.service];
+
+    if(serviceHandler) {
+      try {
+        var appKey = req.header("appKey");
+
+        if(appKey) {
+            if(!Array.isArray(appKey)) {
+                if(appKey.localeCompare(server.appKey) != 0) {
+                  var errInfo = {};
+                  errInfo.code = 401;
+                  errInfo.message = "Incorrect Application Key Provided";
+                  throw errInfo;
+                }
+            }
+            else {
+              var errInfo = {};
+              errInfo.code = 401;
+              errInfo.message = "Invalid Application Key Provided";
+              throw errInfo;
+            }
+        }
+        else {
+          var errInfo = {};
+          errInfo.code = 401;
+          errInfo.message = "No Application Key Provided";
+          throw errInfo;
+        }
+
+        try {
+          serviceHandler(req.query);
+
+          res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+          res.header('Expires', '-1');
+          res.header('Pragma', 'no-cache');
+          res.sendStatus(200);
+        }
+        catch(eService) {
+          if(eService.code) {
+            throw eService;
+          }
+          else {
+            var errInfo = {};
+            errInfo.code = 500;
+            errInfo.message = eService.toString();
+            throw errInfo;
+          }
+        }
+      }
+      catch(e) {
+        if(e.code) {
+          res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+          res.header('Expires', '-1');
+          res.header('Pragma', 'no-cache');
+          res.status(e.code).send(e.message);
+        }
+        else {
+          res.header('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+          res.header('Expires', '-1');
+          res.header('Pragma', 'no-cache');
+          res.status(400).send(e.toString());
+        }
+      }
+    }
+    else {
+      res.sendStatus(404);
+    }
+});
+
+app.get('/RobotControl', (req, res) => {
+  res.sendFile('./public/RobotControl.html', { root: __dirname });
+});
+
+app.get("/commands", (req, res, next) => {
+  res.json(["SetAllOff","SetBaseRotation","SetLowerArmExtension","SetUpperArmExtension","SetWristRoll","SetWristTilt","SetHandRotation"]);
+});
